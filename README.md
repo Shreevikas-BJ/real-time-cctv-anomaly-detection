@@ -66,18 +66,18 @@ This project answers questions such as:
 
 ## Repository Structure
 
-real-time-pothole-detection/
-│
-├── templates/
-│   └── HTML templates for the Flask dashboard
-│
-├── app.py
-│   └── Main Flask application for video upload and pothole detection
-│
-├── convert_masks_to_yolo_boxes.py
-│   └── Utility script to convert mask annotations into YOLO bounding box format
-│
-└── README.md
+    real-time-pothole-detection/
+    │
+    ├── templates/
+    │   └── HTML templates for the Flask dashboard
+    │
+    ├── app.py
+    │   └── Main Flask application for video upload and pothole detection
+    │
+    ├── convert_masks_to_yolo_boxes.py
+    │   └── Utility script to convert mask annotations into YOLO bounding box format
+    │
+    └── README.md
 
 ## System Workflow
 
