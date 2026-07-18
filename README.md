@@ -79,8 +79,6 @@ Training uses mean squared error, Adam with a learning rate of `0.001`, a batch 
 |   |-- test_autoencoder.py      # Play and score UCSD Ped2 Test012
 |   |-- train_autoencoder.py     # Train the autoencoder on normal frames
 |   `-- view_dataset.py          # Preview UCSD Ped2 Train001
-|-- app.py                       # Legacy YOLO/TensorRT pothole dashboard
-|-- templates/index.html         # Legacy dashboard template
 |-- requirements.txt             # Pinned Python environment
 `-- README.md
 ```
@@ -228,10 +226,6 @@ The two inference scripts share the same persistence logic:
 - The autoencoder class is duplicated across the training and inference scripts.
 - Alert images are stored locally without retention, notification, or database support.
 
-## Legacy dashboard files
-
-`app.py` and `templates/index.html` belong to an earlier YOLOv8/TensorRT pothole-detection dashboard. They are not part of the autoencoder CCTV workflow described above. That application expects `models/best_fp16.engine` plus Flask and Ultralytics, none of which are included in the current repository or pinned environment.
-
 ## Possible next steps
 
 - Move the shared model and preprocessing code into reusable modules.
@@ -241,7 +235,6 @@ The two inference scripts share the same persistence logic:
 - Support video files, RTSP streams, and configurable camera indices.
 - Add notifications, alert metadata, retention policies, and a review interface.
 - Add automated tests, reproducible environment files, and headless inference support.
-- Remove or separate the legacy pothole dashboard.
 
 ## Responsible use
 
