@@ -1,312 +1,262 @@
-# Real-Time Pothole Detection
-
-A real-time computer vision application that detects road potholes from uploaded or live road videos using **YOLOv8, OpenCV, Flask, CUDA, and NVIDIA TensorRT**.
+# Real-Time CCTV Anomaly Detection
+
+An unsupervised video-anomaly detection pipeline built with PyTorch and OpenCV. The project trains a convolutional autoencoder on **normal** surveillance frames, treats unusually high reconstruction error as an anomaly, and can monitor either the UCSD Ped2 test set or a live webcam feed.
+
+The repository includes a trained checkpoint at `models/autoencoder.pth`, so you can run inference without retraining once the Python dependencies and input data are available.
+
+## What the project does
+
+- Trains a convolutional autoencoder on normal UCSD Ped2 frames.
+- Calculates a reconstruction-error threshold from the training set.
+- Labels each test or webcam frame as `NORMAL` or `ANOMALY`.
+- Requires 10 consecutive anomalous frames before creating an alert.
+- Saves one timestamped JPEG for each continuous anomaly event in `alerts/`.
+- Uses CUDA automatically when PyTorch detects a compatible GPU; otherwise it runs on CPU.
+- Includes utilities for checking and previewing the expected dataset layout.
+
+This is **frame-level anomaly detection**. It does not identify an anomaly class or draw a bounding box around the anomalous object.
+
+## Detection pipeline
+
+```text
+Normal training frames
+        |
+        v
+Resize to 128 x 192 -> grayscale -> tensor
+        |
+        v
+Convolutional autoencoder learns to reconstruct normal scenes
+        |
+        +--------------------------+
+        |                          |
+        v                          v
+Threshold calibration       Test frame / webcam frame
+(mean error + 3 std. dev.)          |
+                                   v
+                         Mean squared reconstruction error
+                                   |
+                                   v
+                      error > threshold for 10 frames?
+                              |              |
+                             no             yes
+                              |              |
+                           NORMAL     ANOMALY + JPEG alert
+```
+
+The current inference scripts use a threshold of `0.001148`. `src/calculate_threshold.py` calculates a recommended value as:
+
+```text
+threshold = mean(training reconstruction errors) + 3 * standard deviation
+```
+
+For a new camera, scene, or retrained checkpoint, recalculate the threshold and update it in both inference scripts.
+
+## Model architecture
+
+All frames are resized to `128 x 192`, converted to one grayscale channel, and normalized to `[0, 1]` by `ToTensor()`.
+
+| Stage | Layer | Output channels | Kernel / stride | Activation |
+| --- | --- | ---: | --- | --- |
+| Encoder | `Conv2d` | 16 | `3 x 3 / 2` | ReLU |
+| Encoder | `Conv2d` | 32 | `3 x 3 / 2` | ReLU |
+| Encoder | `Conv2d` | 64 | `3 x 3 / 2` | ReLU |
+| Decoder | `ConvTranspose2d` | 32 | `4 x 4 / 2` | ReLU |
+| Decoder | `ConvTranspose2d` | 16 | `4 x 4 / 2` | ReLU |
+| Decoder | `ConvTranspose2d` | 1 | `4 x 4 / 2` | Sigmoid |
+
+Training uses mean squared error, Adam with a learning rate of `0.001`, a batch size of `16`, and `10` epochs.
+
+## Repository layout
+
+```text
+.
+|-- models/
+|   `-- autoencoder.pth          # Included trained autoencoder weights
+|-- src/
+|   |-- calculate_threshold.py   # Derive a threshold from training errors
+|   |-- check_dataset.py         # Count the expected train/test frames
+|   |-- live_detection.py        # Run anomaly detection on webcam index 0
+|   |-- test_autoencoder.py      # Play and score UCSD Ped2 Test012
+|   |-- train_autoencoder.py     # Train the autoencoder on normal frames
+|   `-- view_dataset.py          # Preview UCSD Ped2 Train001
+|-- app.py                       # Legacy YOLO/TensorRT pothole dashboard
+|-- templates/index.html         # Legacy dashboard template
+|-- requirements.txt             # Pinned Python environment
+`-- README.md
+```
+
+`data/`, `alerts/`, virtual environments, and `.env` files are ignored by Git.
+
+## Getting started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Shreevikas-BJ/real-time-cctv-anomaly-detection.git
+cd real-time-cctv-anomaly-detection
+```
+
+Run the commands below from the repository root because the scripts use paths such as `data/UCSDped2/...` and `models/autoencoder.pth` relative to the current working directory.
+
+### 2. Create a virtual environment
 
-This project demonstrates how deep learning-based object detection can be used for road safety, infrastructure monitoring, and automated defect detection in transportation systems.
+Windows PowerShell:
 
----
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-## Overview
+macOS or Linux:
 
-Road potholes are a major safety and maintenance issue. Manual road inspection can be slow, expensive, and difficult to scale across large cities or highways.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-This project builds a real-time pothole detection dashboard that allows users to upload road videos, run object detection on each frame, and visualize detected potholes with bounding boxes and confidence scores.
+### 3. Install dependencies
 
-The system uses a YOLOv8 object detection model and is designed for GPU-accelerated inference using CUDA and TensorRT optimization.
-
----
-
-## Problem Statement
-
-City infrastructure teams and road maintenance departments need faster ways to identify potholes and prioritize repairs.
-
-Traditional inspection methods often require manual surveys, delayed reporting, and high operational effort.
-
-This project answers questions such as:
-
-- Can potholes be detected automatically from road video footage?
-- Can object detection models identify potholes in real time?
-- How can detection confidence and FPS be monitored during inference?
-- How can a lightweight web dashboard make the model easier to use?
-- How can GPU optimization improve detection performance?
-
----
-
-## Key Features
-
-- Real-time pothole detection from road videos
-- YOLOv8-based object detection
-- Flask web dashboard for video upload and visualization
-- OpenCV-based frame processing
-- Bounding box visualization for detected potholes
-- Confidence score display
-- FPS monitoring during inference
-- CUDA-enabled GPU inference support
-- TensorRT FP16 optimization support
-- Utility script for converting segmentation masks to YOLO bounding box format
-- Simple HTML template-based dashboard
-
----
-
-## Tech Stack
-
-| Category | Tools / Libraries |
-|---|---|
-| Language | Python |
-| Web Framework | Flask |
-| Computer Vision | OpenCV |
-| Object Detection | YOLOv8 |
-| Deep Learning | PyTorch |
-| Model Optimization | NVIDIA TensorRT |
-| GPU Acceleration | CUDA |
-| Frontend | HTML |
-| Model Library | Ultralytics |
-
----
-
-## Repository Structure
-
-    real-time-pothole-detection/
-    │
-    ├── templates/
-    │   └── HTML templates for the Flask dashboard
-    │
-    ├── app.py
-    │   └── Main Flask application for video upload and pothole detection
-    │
-    ├── convert_masks_to_yolo_boxes.py
-    │   └── Utility script to convert mask annotations into YOLO bounding box format
-    │
-    └── README.md
-
-## System Workflow
-
-    Road Video Input
-            ↓
-    Upload Through Flask Dashboard
-            ↓
-    Frame Extraction Using OpenCV
-            ↓
-    YOLOv8 Pothole Detection
-            ↓
-    Bounding Box + Confidence Score Generation
-            ↓
-    FPS Monitoring
-            ↓
-    Annotated Video Output / Live Visualization
-    
-## How It Works
-**1. Video Input**
-
-The user uploads a road video through the Flask dashboard.
-
-The video may contain road surfaces captured from a vehicle, mobile camera, or dashcam-like perspective.
-
-**2. Frame Processing**
-
-OpenCV reads the video frame by frame.
-
-Each frame is passed into the YOLOv8 model for pothole detection.
-
-**3. Object Detection**
-
-The YOLOv8 model identifies potholes and returns:
-
-Bounding box coordinates
-Class label
-Detection confidence score
-
-**4. Visualization**
-
-Detected potholes are highlighted on the video frame using bounding boxes.
-
-The dashboard displays the processed output so users can visually inspect detections.
-
-**5. Performance Monitoring**
-
-The application can monitor inference speed using FPS.
-
-This helps evaluate whether the model is suitable for near real-time deployment.
-
-## Model Optimization
-
-This project is designed with GPU acceleration in mind.
-
-Supported optimization concepts include:
-
-CUDA-based inference
-TensorRT model conversion
-FP16 precision optimization
-Faster frame-level inference
-Reduced latency for real-time detection
-
-TensorRT optimization is especially useful when deploying object detection models on NVIDIA GPUs.
-
-## Annotation Utility
-
-The repository includes:
-
-convert_masks_to_yolo_boxes.py
-
-This script can be used to convert segmentation mask-style annotations into YOLO bounding box format.
-
-YOLO annotation format usually follows:
-
-class_id x_center y_center width height
-
-where coordinates are normalized between 0 and 1.
-
-This is useful when preparing custom pothole datasets for YOLO training.
-
-## Example Use Case
-
-A city maintenance team could mount a camera on a vehicle and record road footage.
-
-The system can process the video and detect potholes automatically, helping teams:
-
-Identify damaged roads faster
-Reduce manual inspection effort
-Prioritize high-risk areas
-Build datasets for road maintenance planning
-Support smart city infrastructure monitoring
-
-## Getting Started
-
-**1. Clone the Repository**
-git clone https://github.com/Shreevikas-BJ/real-time-pothole-detection.git
-cd real-time-pothole-detection
-**2. Create a Virtual Environment**
-python -m venv venv
-
-Activate the environment:
-
-Windows
-
-venv\Scripts\activate
-
-macOS / Linux
-
-source venv/bin/activate
-
-**3. Install Dependencies**
-
-If a requirements.txt file is available:
-
+```bash
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install python-dotenv
+```
 
-If not, install the main dependencies manually:
+`python-dotenv` is installed separately because `src/live_detection.py` and `src/test_autoencoder.py` import it, but it is not currently listed in `requirements.txt`.
 
-pip install flask opencv-python ultralytics torch torchvision numpy
+For GPU execution, install the PyTorch build appropriate for your operating system and CUDA environment by following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/).
 
-For GPU acceleration, make sure your PyTorch installation matches your CUDA version.
+## Dataset setup
 
-## Run the Application
+Download **UCSD Ped2** from the [official UCSD Anomaly Detection Dataset page](https://www.svcl.ucsd.edu/projects/anomaly/dataset.htm). Extract it so the repository has this structure:
 
-python app.py
+```text
+data/
+`-- UCSDped2/
+    |-- Train/
+    |   |-- Train001/
+    |   |   `-- *.tif
+    |   `-- Train016/
+    |       `-- *.tif
+    `-- Test/
+        |-- Test001/
+        |   `-- *.tif
+        `-- Test012/
+            `-- *.tif
+```
 
-After running the command, open the local Flask URL in your browser.
+The scripts use only the frame images. The dataset's test ground-truth masks are not consumed by the current implementation.
 
-Usually:
+Confirm that the paths are correct:
 
-http://127.0.0.1:5000/
+```bash
+python src/check_dataset.py
+```
 
-Upload a road video and run pothole detection through the dashboard.
+The command should report nonzero training and testing frame counts.
 
-## YOLOv8 Model File
+To preview the first training sequence, run:
 
-If the model file is not included in the repository, place your trained YOLOv8 pothole detection model in the project folder.
+```bash
+python src/view_dataset.py
+```
 
-Example model file names:
+Press `q` in the OpenCV window to stop playback.
 
-    best.pt
-    yolov8_pothole.pt
-    pothole_detector.pt
+## Run with the included checkpoint
 
-Then update the model path inside app.py if required.
+### Evaluate a recorded test sequence
 
-Example:
+```bash
+python src/test_autoencoder.py
+```
 
-    model = YOLO("best.pt")
+This script processes `data/UCSDped2/Test/Test012`, overlays the reconstruction error and current status, and writes alert images to `alerts/`. Press `q` to stop.
 
-## Dataset Preparation
+### Monitor a live camera
 
-If you are preparing a custom pothole dataset, make sure the dataset follows YOLO format:
+```bash
+python src/live_detection.py
+```
 
-    dataset/
-    │
-    ├── images/
-    │   ├── train/
-    │   └── val/
-    │
-    ├── labels/
-    │   ├── train/
-    │   └── val/
-    │
-    └── data.yaml
+The live script opens camera index `0`. When the error remains above the threshold for 10 consecutive frames, it prints an alert and saves a frame such as:
 
-Each label file should contain bounding box annotations in this format:
+```text
+alerts/anomaly_YYYYMMDD_HHMMSS.jpg
+```
 
-class_id x_center y_center width height
+Press `q` to release the camera and close the window. A desktop session with an available webcam and OpenCV GUI support is required.
 
-## Recommended Repository Description
+## Train and calibrate a model
 
-Real-time computer vision app for detecting road potholes from video streams using YOLOv8, TensorRT, CUDA, OpenCV, and Flask.
+Train on all normal frames under `data/UCSDped2/Train/Train*`:
 
-## Business and Social Value
+```bash
+python src/train_autoencoder.py
+```
 
-This project demonstrates how computer vision can be applied to real-world infrastructure problems.
+The command replaces `models/autoencoder.pth` after training completes.
 
-Potential impact areas include:
+Then calculate a threshold for that checkpoint:
 
-Road safety improvement
-Smart city monitoring
-Automated infrastructure inspection
-Faster road maintenance planning
-Reduced manual survey cost
-Computer vision-based public works analytics
+```bash
+python src/calculate_threshold.py
+```
 
-## Key Learnings
+Copy the printed recommended threshold into the `threshold` variable in:
 
-This project helped strengthen:
+- `src/test_autoencoder.py`
+- `src/live_detection.py`
 
-Object detection using YOLOv8
-Real-time video processing with OpenCV
-Flask-based ML application development
-Bounding box visualization
-Computer vision inference workflow
-CUDA and TensorRT optimization concepts
-Dataset annotation conversion
-Deployment-style thinking for vision models
+## Alert behavior
 
-## Future Improvements
+The two inference scripts share the same persistence logic:
 
-Add a requirements.txt file for easier setup
-Add sample test video
-Add trained YOLOv8 model download instructions
-Add dashboard screenshots or demo GIF
-Add GPS metadata support for pothole location tracking
-Add severity classification for potholes
-Add database storage for detected pothole events
-Add map visualization for detected pothole locations
-Add Docker support
-Add cloud deployment instructions
-Add batch processing for multiple videos
-Add model performance metrics such as mAP, precision, recall, and FPS
+1. A frame is anomalous when its reconstruction error exceeds the threshold.
+2. The consecutive-anomaly counter resets whenever a normal frame appears.
+3. An alert is created after 10 consecutive anomalous frames.
+4. Only one screenshot is saved during a continuous anomaly event.
+5. Alerting is re-armed after the stream returns to normal.
 
-## Disclaimer
+## Current limitations
 
-This project is built for educational and portfolio purposes. Real-world road inspection systems should be validated with diverse road conditions, lighting environments, camera angles, and safety requirements before production deployment.
+- The detector reports only a frame-level status; it does not localize or classify anomalies.
+- The hard-coded threshold is scene-dependent and may not transfer to a different camera.
+- The test sequence, webcam index, training settings, and threshold are not exposed as command-line options.
+- Test and live inference require an OpenCV display, so the scripts are not headless-ready.
+- There is no evaluation script for precision, recall, ROC-AUC, or ground-truth localization.
+- The autoencoder class is duplicated across the training and inference scripts.
+- Alert images are stored locally without retention, notification, or database support.
+
+## Legacy dashboard files
+
+`app.py` and `templates/index.html` belong to an earlier YOLOv8/TensorRT pothole-detection dashboard. They are not part of the autoencoder CCTV workflow described above. That application expects `models/best_fp16.engine` plus Flask and Ultralytics, none of which are included in the current repository or pinned environment.
+
+## Possible next steps
+
+- Move the shared model and preprocessing code into reusable modules.
+- Add command-line or configuration options for input source, threshold, checkpoint, and persistence length.
+- Evaluate against UCSD Ped2 ground truth and report standard anomaly-detection metrics.
+- Add spatial anomaly localization using reconstruction-error maps.
+- Support video files, RTSP streams, and configurable camera indices.
+- Add notifications, alert metadata, retention policies, and a review interface.
+- Add automated tests, reproducible environment files, and headless inference support.
+- Remove or separate the legacy pothole dashboard.
+
+## Responsible use
+
+This repository is an educational prototype, not a production surveillance system. Validate it on the intended scene, measure false-positive and false-negative rates, secure stored footage and alerts, and follow applicable privacy, consent, and data-retention requirements before deployment.
 
 ## Author
 
 Shreevikas Bangalore Jagadish
-Graduate Student, Information Technology and Management
-Illinois Institute of Technology
 
-GitHub: Shreevikas-BJ
-LinkedIn: shreevikasbj
-Portfolio: datascienceportfol.io/shreevikasbj
+Graduate Student, Information Technology and Management, Illinois Institute of Technology
 
-## Repository
+- GitHub: [Shreevikas-BJ](https://github.com/Shreevikas-BJ)
+- LinkedIn: [shreevikasbj](https://www.linkedin.com/in/shreevikasbj/)
+- Portfolio: [datascienceportfol.io/shreevikasbj](https://datascienceportfol.io/shreevikasbj)
 
-    https://github.com/Shreevikas-BJ/real-time-pothole-detection
+## License
+
+No license file is currently included in this repository. Add an explicit license before distributing or reusing the project beyond the permissions granted by copyright law.
