@@ -250,6 +250,4 @@ Graduate Student, Information Technology and Management, Illinois Institute of T
 - LinkedIn: [shreevikasbj](https://www.linkedin.com/in/shreevikasbj/)
 - Portfolio: [datascienceportfol.io/shreevikasbj](https://datascienceportfol.io/shreevikasbj)
 
-## License
 
-No license file is currently included in this repository. Add an explicit license before distributing or reusing the project beyond the permissions granted by copyright law.
