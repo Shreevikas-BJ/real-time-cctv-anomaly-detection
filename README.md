@@ -2,7 +2,7 @@
 
 An unsupervised video-anomaly detection pipeline built with PyTorch and OpenCV. The project trains a convolutional autoencoder on **normal** surveillance frames, treats unusually high reconstruction error as an anomaly, and can monitor either the UCSD Ped2 test set or a live webcam feed.
 
-The repository includes a trained checkpoint at `models/autoencoder.pth`, so you can run inference without retraining once the Python dependencies and input data are available.
+The repository includes trained checkpoints at `models/autoencoder.pth` and `models/ucf_r3d18_binary.pth`, so you can run inference without retraining once the Python dependencies and input data are available.
 
 ## What the project does
 
@@ -13,6 +13,7 @@ The repository includes a trained checkpoint at `models/autoencoder.pth`, so you
 - Saves one timestamped JPEG for each continuous anomaly event in `alerts/`.
 - Uses CUDA automatically when PyTorch detects a compatible GPU; otherwise it runs on CPU.
 - Includes utilities for checking and previewing the expected dataset layout.
+- Includes optional experimental UCF video-classification utilities for a separate normal/anomaly classifier.
 
 This is **frame-level anomaly detection**. It does not identify an anomaly class or draw a bounding box around the anomalous object.
 
@@ -71,19 +72,38 @@ Training uses mean squared error, Adam with a learning rate of `0.001`, a batch 
 ```text
 .
 |-- models/
-|   `-- autoencoder.pth          # Included trained autoencoder weights
+|   |-- autoencoder.pth          # Included trained autoencoder weights
+|   `-- ucf_r3d18_binary.pth      # Optional UCF video-classifier weights
 |-- src/
 |   |-- calculate_threshold.py   # Derive a threshold from training errors
 |   |-- check_dataset.py         # Count the expected train/test frames
 |   |-- live_detection.py        # Run anomaly detection on webcam index 0
 |   |-- test_autoencoder.py      # Play and score UCSD Ped2 Test012
 |   |-- train_autoencoder.py     # Train the autoencoder on normal frames
-|   `-- view_dataset.py          # Preview UCSD Ped2 Train001
+|   |-- view_dataset.py          # Preview UCSD Ped2 Train001
+|   |-- check_ucf_sequences.py   # Inspect UCF-shaped sequence files
+|   |-- evaluate_video_classifier.py # Evaluate the UCF R3D-18 model
+|   |-- test_sequence_loader.py  # Debug UCF sequence loading
+|   |-- train_video_classifier.py # Train the UCF R3D-18 classifier
+|   |-- ucf_sequence_dataset.py  # UCF frame sequence dataset helper
+|   `-- visualize_predictions.py # Display UCF clip predictions
 |-- requirements.txt             # Pinned Python environment
 `-- README.md
 ```
 
 `data/`, `alerts/`, virtual environments, and `.env` files are ignored by Git.
+
+## Running the optional UCF video classifier utilities
+
+The repository also contains experimental UCF video-classification utilities under `src/`. These scripts are separate from the UCSD Ped2 autoencoder pipeline and use `models/ucf_r3d18_binary.pth`.
+
+- `src/train_video_classifier.py` — train a binary R3D-18 anomaly classifier.
+- `src/evaluate_video_classifier.py` — evaluate the trained UCF classifier on a test dataset.
+- `src/visualize_predictions.py` — display frame-by-frame predictions for UCF clips.
+- `src/ucf_sequence_dataset.py` — helper dataset implementation for UCF frame sequences.
+- `src/check_ucf_sequences.py` and `src/test_sequence_loader.py` — dataset inspection and loader-debugging utilities.
+
+These UCF utilities currently use local Windows paths and are not configured with command-line options.
 
 ## Getting started
 
