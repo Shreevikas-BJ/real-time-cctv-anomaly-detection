@@ -4,3 +4,6 @@ venv/
 __pycache__/
 data/
 alerts/
+models/*.pth
+models/*.pt
+models/*.ckpt
